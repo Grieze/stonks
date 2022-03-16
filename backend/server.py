@@ -13,7 +13,6 @@ from sqlalchemy.sql import select
 OPEN_COLUMN = 0
 VOLUME_COLUMN = 5
 STOCK_DATABASE_URI = 'sqlite:///stocks.db'
-DAILY_CODE = '1d'
 TICKER_COL = 0
 START_COL = 1
 END_COL = 2
@@ -62,7 +61,7 @@ def str_to_date(val : str):
 def request_and_scrub_data(ticker, start, end, conn, interval):
     # fetch from api and POST into database if not found in database
     stock_data = yf.Ticker(ticker)
-    stock_data = stock_data.history(start=start, end=end, interval=DAILY_CODE)
+    stock_data = stock_data.history(start=start, end=end, interval=DAILY)
     # don't need to have the dividends and stock splits columns so we leave them out
     stock_data = stock_data.iloc[:,OPEN_COLUMN:VOLUME_COLUMN]
     # round off unneccesary data
@@ -147,7 +146,7 @@ def fetch_data_from_db(ticker, start, end, interval):
 def start_not_found_request_data(ticker, start, early_end, end, conn, interval):
     print("START NOT FOUND, MADE REQUEST, ADDED TO DB, AND FETCHED FROM DB")
     stock_data = yf.Ticker(ticker)
-    stock_data = stock_data.history(start=start, end=early_end, interval=DAILY_CODE)
+    stock_data = stock_data.history(start=start, end=early_end, interval=DAILY)
     stock_data = stock_data.iloc[:,OPEN_COLUMN:VOLUME_COLUMN]
     stock_data = stock_data.round(2)
     stock_data.reset_index(inplace=True)
@@ -177,7 +176,7 @@ def start_not_found_request_data(ticker, start, early_end, end, conn, interval):
 def end_not_found_request_data(ticker, start, late_start, end, conn, interval):
     print("END NOT FOUND, MADE REQUEST, ADDED TO DB, AND FETCHED FROM DB")
     stock_data = yf.Ticker(ticker)
-    stock_data = stock_data.history(start=late_start, end=end, interval=DAILY_CODE)
+    stock_data = stock_data.history(start=late_start, end=end, interval=DAILY)
     stock_data = stock_data.iloc[:,OPEN_COLUMN:VOLUME_COLUMN]
     stock_data = stock_data.round(2)
     stock_data.reset_index(inplace=True)
