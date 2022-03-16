@@ -8,7 +8,6 @@ from datetime import datetime
 from sqlalchemy import create_engine, MetaData, inspect, Table, Column, Date
 from sqlalchemy.sql import select
 
-# uvicorn server:app --reload
 # GLOBAL VARIABLES
 OPEN_COLUMN = 0
 VOLUME_COLUMN = 5
@@ -49,11 +48,6 @@ print(stock_db_engine.table_names())
 prev_queries_table = stock_db_meta.tables['Previous Queries']
 prev_queries_insert = prev_queries_table.insert()
 
-"""
-TODO:
-Need to create
-- return errors to front end
-"""
 
 def str_to_date(val : str):
     return datetime.strptime(val, '%Y-%m-%d').date()
@@ -62,6 +56,7 @@ def request_and_scrub_data(ticker, start, end, conn, interval):
     # fetch from api and POST into database if not found in database
     stock_data = yf.Ticker(ticker)
     stock_data = stock_data.history(start=start, end=end, interval=DAILY)
+    print(stock_data.size)
     # don't need to have the dividends and stock splits columns so we leave them out
     stock_data = stock_data.iloc[:,OPEN_COLUMN:VOLUME_COLUMN]
     # round off unneccesary data
@@ -133,7 +128,6 @@ def fetch_data_from_db(ticker, start, end, interval):
         stock_data.Date = (stock_data.Date - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
         stock_data.set_index('Date', inplace=True)
         print(stock_data)
-        # return "WORKING ON IT!"
 
     else:
         stock_data.Date = (stock_data.Date - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
@@ -209,7 +203,7 @@ async def read_query(
     ticker : str = "", 
     start : str = "", 
     end : str = "", 
-    interval : str = "1mo"
+    interval : str = ""
     ):
     start = str_to_date(start)
     end = str_to_date(end)

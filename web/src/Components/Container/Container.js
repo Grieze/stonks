@@ -8,7 +8,7 @@ const CANDLE_SERIES_ACCESS = 0;
 const GREEN = "#00b746";
 const RED = "#ef403c";
 const BLACK = "#000"
-
+const MICROSECS = 1000;
 const Container = () => {
   const [currentStockData, setCurrentStockData] = useState();
   const [currentOptions, setCurrentOptions] = useState({
@@ -69,7 +69,7 @@ const Container = () => {
       xaxis: {
         labels: {
           formatter: function(val) {
-            return dayjs(val).format('MM DD YYYY')
+            return dayjs(val).format('MM/DD/YYYY')
           }
         }
       },
@@ -89,29 +89,39 @@ const Container = () => {
       dataLabels: {
           enabled: false
       },
+      plotOptions: {
+        bar: {
+          distributed: true, // this line is mandatory
+          horizontal: false,
+          barheight: '85%',
+        }
+      },
       xaxis: {
           categories : [],
           labels: {
               formatter: function(val) {
-                  return dayjs(val).format('MM DD YYYY')
+                  return dayjs(val).format('MM/DD/YYYY')
               }
           }
       },
-      // TODO :
-      /* Volume bars for periods when the close price > open price should be green. 
-      Volume bars for periods when close price < open price should be red. 
-      Volume bars for periods when open price = close price should be black.*/
+      fill : {
+        opacity: 1,
+      },
+      legend: {
+        show: false,
+      },
+      // TODO : fix volume bars
       colors : [],
   }
   
   for (let date in currentStockData) {
-    console.log(date);
     candleSeries[CANDLE_SERIES_ACCESS].data.push({
-      x : new Date(parseInt(date)),
+      // multiply by 1000 to convert from epoch to microseconds time
+      x : new Date(parseInt(date)*MICROSECS),
       y : [currentStockData[date].Open, currentStockData[date].High, currentStockData[date].Low, currentStockData[date].Close]
     })
     barSeries[CANDLE_SERIES_ACCESS].data.push(currentStockData[date].Volume);
-    barOptions.xaxis.categories.push(new Date(parseInt(date)));
+    barOptions.xaxis.categories.push(new Date(parseInt(date)*MICROSECS));
     if (currentStockData[date].Close > currentStockData[date].Open) {
       barOptions.colors.push(GREEN);
     }
@@ -122,10 +132,10 @@ const Container = () => {
       barOptions.colors.push(BLACK);
     }
   }
-  console.log(barOptions.colors);
+  // console.log(barOptions.colors);
 
   return (
-  <div>
+  <div className="Container">
     {/* <form id="textInputs"></form> */}
     <form>
       <label>
@@ -188,7 +198,7 @@ const Container = () => {
         Submit
       </button>
     </form>
-    <Chart options={candleOptions} series={candleSeries} type="candlestick" height={350}/>
+    <Chart options={candleOptions} series={candleSeries} type="candlestick" height={450}/>
     <Chart options={barOptions} series={barSeries} type="bar" height={200}/>
   </div>
 )}
