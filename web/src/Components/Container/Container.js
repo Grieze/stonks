@@ -69,7 +69,7 @@ const Container = () => {
       xaxis: {
         labels: {
           formatter: function(val) {
-            return dayjs(val).format('MM DD YY')
+            return dayjs(val).format('MM DD YYYY')
           }
         }
       },
@@ -93,7 +93,7 @@ const Container = () => {
           categories : [],
           labels: {
               formatter: function(val) {
-                  return dayjs(val).format('MM DD YY')
+                  return dayjs(val).format('MM DD YYYY')
               }
           }
       },
@@ -105,6 +105,7 @@ const Container = () => {
   }
   
   for (let date in currentStockData) {
+    console.log(date);
     candleSeries[CANDLE_SERIES_ACCESS].data.push({
       x : new Date(parseInt(date)),
       y : [currentStockData[date].Open, currentStockData[date].High, currentStockData[date].Low, currentStockData[date].Close]

@@ -18,6 +18,17 @@ TICKER_COL = 0
 START_COL = 1
 END_COL = 2
 SIZE_DATE_SPLICE = 10
+DAILY = '1d'
+WEEKLY = '1wk'
+MONTHLY = '1mo'
+# set of rules needed for weekly manipulation
+SORT_LOGIC = {
+    'Open'  : 'first',
+    'High'  : 'max',
+    'Low'   : 'min',
+    'Close' : 'last',
+    'Volume': 'sum'
+}
 
 # API set up
 app = FastAPI()
@@ -42,14 +53,13 @@ prev_queries_insert = prev_queries_table.insert()
 """
 TODO:
 Need to create
-- function for weekly data 
-- function for monthly data
+- return errors to front end
 """
 
 def str_to_date(val : str):
     return datetime.strptime(val, '%Y-%m-%d').date()
 
-def request_and_scrub_data(ticker, start, end, conn):
+def request_and_scrub_data(ticker, start, end, conn, interval):
     # fetch from api and POST into database if not found in database
     stock_data = yf.Ticker(ticker)
     stock_data = stock_data.history(start=start, end=end, interval=DAILY_CODE)
@@ -84,13 +94,17 @@ def request_and_scrub_data(ticker, start, end, conn):
         GROUP BY date)
         """.format(ticker, ticker)
     )
-    print(stock_db_engine.table_names())
-    stock_data = stock_data.to_json(orient="index")
-    data = json.loads(stock_data)
+    if interval != DAILY:
+        data = fetch_data_from_db(ticker, start, end, interval)
+    else:
+        # conert from pandas DF to JSON, stock data is not from our DB but from the API
+        stock_data = stock_data.to_json(orient="index")
+        data = json.loads(stock_data)
     return data
 
-def fetch_data_from_db(ticker, start, end):
+def fetch_data_from_db(ticker, start, end, interval):
     print("FETCHED DATA FROM DB")
+    # if interval daily do below, if weekly do weekly query not daily, if monthly do monthly query not daily
     stock_data = pd.read_sql_query(
         sql=("""
         SELECT * FROM {}
@@ -100,17 +114,40 @@ def fetch_data_from_db(ticker, start, end):
         con=stock_db_engine
     )
     stock_data.Date = pd.to_datetime(stock_data.Date)
-    stock_data.Date = (stock_data.Date - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
-    stock_data.set_index('Date', inplace=True)
-    print(stock_data)
+    
+    if interval == WEEKLY:
+        offset = pd.offsets.timedelta(days=-6)
+        test_data = stock_data
+        stock_data.set_index(keys='Date', inplace=True)
+        stock_data = stock_data.resample('W', kind='timestamp', loffset=offset).apply(SORT_LOGIC)
+        stock_data.reset_index(inplace=True)
+        stock_data.Date = (stock_data.Date - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
+        stock_data.set_index('Date', inplace=True)
+        print(stock_data)
+
+    elif interval == MONTHLY:
+        offset = pd.offsets.timedelta(days=-30)
+        test_data = stock_data
+        stock_data.set_index(keys='Date', inplace=True)
+        stock_data = stock_data.resample('M', kind='timestamp', loffset=offset).apply(SORT_LOGIC)
+        stock_data.reset_index(inplace=True)
+        stock_data.Date = (stock_data.Date - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
+        stock_data.set_index('Date', inplace=True)
+        print(stock_data)
+        # return "WORKING ON IT!"
+
+    else:
+        stock_data.Date = (stock_data.Date - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
+        stock_data.set_index('Date', inplace=True)
+    
     stock_data = stock_data.to_json(orient="index", date_format="epoch")
     data = json.loads(stock_data)
     return data
 
-def start_not_found_request_data(ticker, start, end, conn):
+def start_not_found_request_data(ticker, start, early_end, end, conn, interval):
     print("START NOT FOUND, MADE REQUEST, ADDED TO DB, AND FETCHED FROM DB")
     stock_data = yf.Ticker(ticker)
-    stock_data = stock_data.history(start=start, end=end, interval=DAILY_CODE)
+    stock_data = stock_data.history(start=start, end=early_end, interval=DAILY_CODE)
     stock_data = stock_data.iloc[:,OPEN_COLUMN:VOLUME_COLUMN]
     stock_data = stock_data.round(2)
     stock_data.reset_index(inplace=True)
@@ -123,7 +160,7 @@ def start_not_found_request_data(ticker, start, end, conn):
         {
             "ticker" : ticker, 
             "start" : start, 
-            "end" : str_to_date(end)
+            "end" : str_to_date(early_end)
         }
     )
     stock_db_conn.execute(
@@ -134,13 +171,13 @@ def start_not_found_request_data(ticker, start, end, conn):
         GROUP BY date)
         """.format(ticker, ticker)
     )            
-    data = fetch_data_from_db(ticker, start, end)
+    data = fetch_data_from_db(ticker, start, end, interval)
     return data
 
-def end_not_found_request_data(ticker, start, end, conn):
+def end_not_found_request_data(ticker, start, late_start, end, conn, interval):
     print("END NOT FOUND, MADE REQUEST, ADDED TO DB, AND FETCHED FROM DB")
     stock_data = yf.Ticker(ticker)
-    stock_data = stock_data.history(start=start, end=end, interval=DAILY_CODE)
+    stock_data = stock_data.history(start=late_start, end=end, interval=DAILY_CODE)
     stock_data = stock_data.iloc[:,OPEN_COLUMN:VOLUME_COLUMN]
     stock_data = stock_data.round(2)
     stock_data.reset_index(inplace=True)
@@ -152,7 +189,7 @@ def end_not_found_request_data(ticker, start, end, conn):
         prev_queries_insert, 
         {
             "ticker" : ticker, 
-            "start" : str_to_date(start), 
+            "start" : str_to_date(late_start), 
             "end" : end
         }
     )
@@ -165,15 +202,15 @@ def end_not_found_request_data(ticker, start, end, conn):
         GROUP BY date)
         """.format(ticker, ticker)
     )            
-    data = fetch_data_from_db(ticker, start, end)
+    data = fetch_data_from_db(ticker, start, end, interval)
     return data
 
 @app.get("/")
 async def read_query(
-    ticker : str = "TSLA", 
-    start : str = "2012-09-01", 
-    end : str = "2012-12-01", 
-    interval : str = "1d"
+    ticker : str = "", 
+    start : str = "", 
+    end : str = "", 
+    interval : str = "1mo"
     ):
     start = str_to_date(start)
     end = str_to_date(end)
@@ -203,20 +240,20 @@ async def read_query(
         print(latest_end_date)
 
         if (earliest_start_date[TICKER_COL] != None and latest_end_date[TICKER_COL] != None):
-            data = fetch_data_from_db(ticker, start, end)
+            data = fetch_data_from_db(ticker, start, end, interval)
             return data
             
         elif earliest_start_date[TICKER_COL] == None and latest_end_date[TICKER_COL] != None:
-            data = start_not_found_request_data(ticker, start, latest_end_date[START_COL], stock_db_engine)
+            data = start_not_found_request_data(ticker, start, latest_end_date[START_COL], end, stock_db_engine, interval)
             return data
 
         elif earliest_start_date[TICKER_COL] != None and latest_end_date[TICKER_COL] == None:
-            data = end_not_found_request_data(ticker, earliest_start_date[END_COL], end, stock_db_engine)
+            data = end_not_found_request_data(ticker, start, earliest_start_date[END_COL], end, stock_db_engine, interval)
             return data
 
         elif earliest_start_date[TICKER_COL] == None and latest_end_date[TICKER_COL] == None:
             print("FETCHED DATA FROM API")
-            data = request_and_scrub_data(ticker, start, end, stock_db_engine)
+            data = request_and_scrub_data(ticker, start, end, stock_db_engine, interval)
             return data
     else:
-        return request_and_scrub_data(ticker, start, end, stock_db_engine)
+        return request_and_scrub_data(ticker, start, end, stock_db_engine, interval)
