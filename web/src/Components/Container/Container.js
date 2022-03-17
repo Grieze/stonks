@@ -8,7 +8,6 @@ const CANDLE_SERIES_ACCESS = 0;
 const GREEN = "#00b746";
 const RED = "#ef403c";
 const BLACK = "#000"
-const MICROSECS = 1000;
 const Container = () => {
   const [currentStockData, setCurrentStockData] = useState();
   const [currentOptions, setCurrentOptions] = useState({
@@ -117,11 +116,11 @@ const Container = () => {
   for (let date in currentStockData) {
     candleSeries[CANDLE_SERIES_ACCESS].data.push({
       // multiply by 1000 to convert from epoch to microseconds time
-      x : new Date(parseInt(date)*MICROSECS),
+      x : new Date(parseInt(date)),
       y : [currentStockData[date].Open, currentStockData[date].High, currentStockData[date].Low, currentStockData[date].Close]
     })
     barSeries[CANDLE_SERIES_ACCESS].data.push(currentStockData[date].Volume);
-    barOptions.xaxis.categories.push(new Date(parseInt(date)*MICROSECS));
+    barOptions.xaxis.categories.push(new Date(parseInt(date)));
     if (currentStockData[date].Close > currentStockData[date].Open) {
       barOptions.colors.push(GREEN);
     }

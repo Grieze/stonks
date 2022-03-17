@@ -114,9 +114,6 @@ def fetch_data_from_db(ticker, start, end, interval):
         test_data = stock_data
         stock_data.set_index(keys='Date', inplace=True)
         stock_data = stock_data.resample('W', kind='timestamp', loffset=offset).apply(SORT_LOGIC)
-        stock_data.reset_index(inplace=True)
-        stock_data.Date = (stock_data.Date - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
-        stock_data.set_index('Date', inplace=True)
         print(stock_data)
 
     elif interval == MONTHLY:
@@ -124,13 +121,9 @@ def fetch_data_from_db(ticker, start, end, interval):
         test_data = stock_data
         stock_data.set_index(keys='Date', inplace=True)
         stock_data = stock_data.resample('M', kind='timestamp', loffset=offset).apply(SORT_LOGIC)
-        stock_data.reset_index(inplace=True)
-        stock_data.Date = (stock_data.Date - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
-        stock_data.set_index('Date', inplace=True)
         print(stock_data)
 
     else:
-        stock_data.Date = (stock_data.Date - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
         stock_data.set_index('Date', inplace=True)
     
     stock_data = stock_data.to_json(orient="index", date_format="epoch")
